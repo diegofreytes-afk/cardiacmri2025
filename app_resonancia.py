@@ -3,14 +3,10 @@ import numpy as np
 import os
 
 # Configuración de página
-st.set_page_config(page_title="Resonancia Cardiaca: Valores normales Guia SCMR 2025", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="CMR Reference Pro", layout="wide", initial_sidebar_state="expanded")
 
-# --- SIDEBAR (DATOS PACIENTE & TEMA) ---
+# --- SIDEBAR (TEMA Y DATOS PACIENTE) ---
 with st.sidebar:
-    # Nuevo ícono profesional (Historia Clínica / Perfil Médico)
-    st.image("mri1.png", width=270)
-    
-    # Toggle para Modo Oscuro
     dark_mode = st.toggle("🌙 Modo Oscuro / ☀️ Claro", value=False)
     st.divider()
 
@@ -21,7 +17,6 @@ with st.sidebar:
     peso = st.number_input("Peso (kg)", 30.0, 150.0, 75.0)
     altura = st.number_input("Altura (cm)", 100, 220, 175)
     
-    # Función de cálculo de BSA
     def calcular_bsa_dubois(p, a):
         return 0.007184 * (p**0.425) * (a**0.725)
     
@@ -29,80 +24,58 @@ with st.sidebar:
     st.divider()
     st.metric("Superficie Corporal (DuBois)", f"{bsa:.2f} m²")
 
-# --- VARIABLES DE TEMA (ESTÉTICA) ---
+# --- INYECCIÓN DE ESTILOS ---
 if dark_mode:
+    bg_app = "#121212"
+    bg_sidebar = "#1e1e1e"
     bg_card = "#25282f"
+    text_color = "#ffffff"
     border_color = "#3b82f6"
     title_color = "#9ca3af"
     val_color = "#60a5fa"
     shadow = "0 4px 6px rgba(0,0,0,0.4)"
     shadow_hover = "0 6px 12px rgba(0,0,0,0.6)"
 else:
+    bg_app = "#f9fafb"
+    bg_sidebar = "#ffffff"
     bg_card = "#ffffff"
+    text_color = "#111827"
     border_color = "#0052cc"
     title_color = "#6b7280"
     val_color = "#0052cc"
     shadow = "0 4px 6px rgba(0,0,0,0.05)"
     shadow_hover = "0 6px 12px rgba(0,0,0,0.1)"
 
-# --- ESTILOS CSS PROFESIONALES ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
-    
-    .metric-card {{
-        background-color: {bg_card};
-        border-left: 5px solid {border_color};
-        padding: 20px 25px;
-        border-radius: 8px;
-        box-shadow: {shadow};
-        margin-bottom: 20px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }}
-    .metric-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: {shadow_hover};
-    }}
-    .metric-title {{
-        color: {title_color};
-        font-size: 14px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
-    }}
-    .metric-value {{
-        color: {val_color};
-        font-size: 30px;
-        font-weight: 800;
-    }}
-    .stSelectbox label {{
-        font-size: 18px !important;
-        font-weight: 600 !important;
-    }}
+    .stApp {{ background-color: {bg_app} !important; color: {text_color} !important; }}
+    [data-testid="stSidebar"] {{ background-color: {bg_sidebar} !important; }}
+    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, [data-testid="stMetricValue"] {{ color: {text_color} !important; }}
+    .stSelectbox div[data-baseweb="select"] {{ background-color: {bg_card} !important; color: {text_color} !important; }}
+    .metric-card {{ background-color: {bg_card}; border-left: 5px solid {border_color}; padding: 20px 25px; border-radius: 8px; box-shadow: {shadow}; margin-bottom: 20px; transition: transform 0.2s, box-shadow 0.2s; }}
+    .metric-card:hover {{ transform: translateY(-2px); box-shadow: {shadow_hover}; }}
+    .metric-title {{ color: {title_color}; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }}
+    .metric-value {{ color: {val_color}; font-size: 30px; font-weight: 800; }}
+    .stSelectbox label {{ font-size: 18px !important; font-weight: 600 !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIONES CORE ---
+# --- FUNCIONES DE SOPORTE CORREGIDAS ---
 def format_range(mean, sd):
     return f"{mean - 2*sd:.1f} - {mean + 2*sd:.1f}"
 
 def get_age_bracket(edad, tipo="general"):
     if tipo == "aorta_65":
+        if edad < 45: return "<45"
         if 45 <= edad <= 54: return "45-54"
         if 55 <= edad <= 64: return "55-64"
         if 65 <= edad <= 74: return "65-74"
         if 75 <= edad <= 84: return "75-84"
-        return "45-54"
-    elif tipo == "pulmonar":
-        if 20 <= edad <= 30: return "20-30"
-        if 31 <= edad <= 40: return "30-40"
-        if 41 <= edad <= 50: return "40-50"
-        if 51 <= edad <= 60: return "50-60"
-        if 61 <= edad <= 70: return "60-70"
-        return "20-30"
+        return ">=85"
     else:
+        if edad < 20: return "<20"
         if 20 <= edad <= 29: return "20-29"
         if 30 <= edad <= 39: return "30-39"
         if 40 <= edad <= 49: return "40-49"
@@ -113,18 +86,20 @@ def get_age_bracket(edad, tipo="general"):
 def mostrar_grid(metricas):
     cols = st.columns(min(len(metricas), 4))
     for i, (titulo, valor) in enumerate(metricas):
+        # Ajuste dinámico de fuente para textos largos como "Datos no disponibles"
+        val_style = "font-size: 16px; line-height: 1.2;" if "disponible" in str(valor).lower() else ""
         with cols[i % 4]:
             st.markdown(f'''
                 <div class="metric-card">
                     <div class="metric-title">{titulo}</div>
-                    <div class="metric-value">{valor}</div>
+                    <div class="metric-value" style="{val_style}">{valor}</div>
                 </div>
             ''', unsafe_allow_html=True)
 
-st.title("Resonancia Cardiaca: Valores normales Guia SCMR 2025")
+st.title("🏥 CMR Expert: Base de Datos de Referencia")
 st.markdown("Valores normales paramétricos ajustados por variables demográficas.")
 
-# --- MENÚ DE NAVEGACIÓN ---
+# --- DICCIONARIO DE MAPEO ---
 mapping = {
     "Ventrículo Izquierdo (VI)": "Volumenes VI.jpg",
     "Diámetros VI": "Diametros VI.jpg",
@@ -151,7 +126,6 @@ mapping = {
 seleccion = st.selectbox("📂 Seleccione la categoría anatómica a consultar:", list(mapping.keys()))
 st.divider()
 
-# --- LÓGICA DE CONTENIDO Y RECOPILACIÓN DE MÉTRICAS ---
 bracket = get_age_bracket(edad)
 datos_mostrar = [] 
 
@@ -184,16 +158,22 @@ elif seleccion == "Ventrículo Derecho (VD)":
     ])
 
 elif seleccion == "VD por Edad":
-    st.caption(f"Aplicando filtro para grupo etario: {bracket} años")
-    vd_age = {
-        "H": {"20-29": ("93-254", "56-129", "20-147", "12-73", "27-78"), "30-39": ("81-230", "50-111", "29-113", "18-55", "41-69"), "40-49": ("70-231", "45-114", "21-111", "14-55", "41-72"), "50-59": ("67-225", "42-112", "19-107", "12-55", "44-71"), "60-69": ("50-214", "38-105", "14-93", "12-46", "48-72"), ">=70": ("101-214", "52-106", "34-94", "18-47", "48-71")},
-        "M": {"20-29": ("72-176", "51-102", "17-97", "11-55", "35-76"), "30-39": ("68-166", "47-100", "13-86", "9-53", "35-80"), "40-49": ("63-175", "45-97", "17-78", "12-45", "47-75"), "50-59": ("54-167", "41-91", "14-73", "11-41", "49-75"), "60-69": ("54-164", "41-90", "12-68", "10-38", "51-77"), ">=70": ("77-162", "47-90", "22-65", "14-36", "53-75")}
-    }
-    vals = vd_age[sk][bracket]
-    datos_mostrar.extend([
-        ("RVEDV (mL)", vals[0]), ("RVEDV/BSA (mL/m²)", vals[1]),
-        ("RVESV (mL)", vals[2]), ("RVESV/BSA (mL/m²)", vals[3]), ("RV EF (%)", vals[4])
-    ])
+    st.caption(f"Filtro etario activo: {edad} años")
+    if bracket == "<20":
+        datos_mostrar.extend([
+            ("RVEDV (mL)", "Datos no disponibles para la edad"), ("RVEDV/BSA (mL/m²)", "Datos no disponibles para la edad"),
+            ("RVESV (mL)", "Datos no disponibles para la edad"), ("RVESV/BSA (mL/m²)", "Datos no disponibles para la edad"), ("RV EF (%)", "Datos no disponibles para la edad")
+        ])
+    else:
+        vd_age = {
+            "H": {"20-29": ("93-254", "56-129", "20-147", "12-73", "27-78"), "30-39": ("81-230", "50-111", "29-113", "18-55", "41-69"), "40-49": ("70-231", "45-114", "21-111", "14-55", "41-72"), "50-59": ("67-225", "42-112", "19-107", "12-55", "44-71"), "60-69": ("50-214", "38-105", "14-93", "12-46", "48-72"), ">=70": ("101-214", "52-106", "34-94", "18-47", "48-71")},
+            "M": {"20-29": ("72-176", "51-102", "17-97", "11-55", "35-76"), "30-39": ("68-166", "47-100", "13-86", "9-53", "35-80"), "40-49": ("63-175", "45-97", "17-78", "12-45", "47-75"), "50-59": ("54-167", "41-91", "14-73", "11-41", "49-75"), "60-69": ("54-164", "41-90", "12-68", "10-38", "51-77"), ">=70": ("77-162", "47-90", "22-65", "14-36", "53-75")}
+        }
+        vals = vd_age[sk][bracket]
+        datos_mostrar.extend([
+            ("RVEDV (mL)", vals[0]), ("RVEDV/BSA (mL/m²)", vals[1]),
+            ("RVESV (mL)", vals[2]), ("RVESV/BSA (mL/m²)", vals[3]), ("RV EF (%)", vals[4])
+        ])
 
 elif seleccion == "Aurícula Izquierda (AI)":
     st.caption("Calculado mediante volumen biplano por área longitud.")
@@ -204,16 +184,22 @@ elif seleccion == "Aurícula Izquierda (AI)":
 
 elif seleccion == "AI por Edad":
     st.caption("Calculado mediante volumen biplano por área longitud.")
-    st.caption(f"Valores ajustados para grupo etario: {bracket} años")
-    ai_age = {
-        "H": {"20-29": ("40-103", "22-54"), "30-39": ("33-107", "19-54"), "40-49": ("34-108", "20-54"), "50-59": ("28-112", "17-55"), "60-69": ("23-112", "15-57"), ">=70": ("24-115", "13-59")},
-        "M": {"20-29": ("30-89", "21-53"), "30-39": ("34-85", "22-50"), "40-49": ("29-95", "20-53"), "50-59": ("24-94", "17-52"), "60-69": ("21-96", "15-55"), ">=70": ("24-102", "15-58")}
-    }
-    vals = ai_age[sk][bracket]
-    datos_mostrar.extend([
-        ("Max LA Volume (mL)", vals[0]),
-        ("Max LA Volume/BSA (mL/m²)", vals[1])
-    ])
+    st.caption(f"Filtro etario activo: {edad} años")
+    if bracket == "<20":
+        datos_mostrar.extend([
+            ("Max LA Volume (mL)", "Datos no disponibles para la edad"),
+            ("Max LA Volume/BSA (mL/m²)", "Datos no disponibles para la edad")
+        ])
+    else:
+        ai_age = {
+            "H": {"20-29": ("40-103", "22-54"), "30-39": ("33-107", "19-54"), "40-49": ("34-108", "20-54"), "50-59": ("28-112", "17-55"), "60-69": ("23-112", "15-57"), ">=70": ("24-115", "13-59")},
+            "M": {"20-29": ("30-89", "21-53"), "30-39": ("34-85", "22-50"), "40-49": ("29-95", "20-53"), "50-59": ("24-94", "17-52"), "60-69": ("21-96", "15-55"), ">=70": ("24-102", "15-58")}
+        }
+        vals = ai_age[sk][bracket]
+        datos_mostrar.extend([
+            ("Max LA Volume (mL)", vals[0]),
+            ("Max LA Volume/BSA (mL/m²)", vals[1])
+        ])
 
 elif seleccion == "AI (Área y Diámetros)":
     datos_mostrar.extend([
@@ -231,16 +217,22 @@ elif seleccion == "Aurícula Derecha (AD)":
     ])
 
 elif seleccion == "AD por Edad":
-    st.caption(f"Valores ajustados para grupo etario: {bracket} años")
-    ad_age = {
-        "H": {"20-29": ("18-118", "13-59"), "30-39": ("25-114", "17-57"), "40-49": ("16-131", "11-65"), "50-59": ("18-127", "12-62"), "60-69": ("7-129", "8-66"), ">=70": ("35-140", "17-71")},
-        "M": {"20-29": ("29-81", "19-49"), "30-39": ("30-81", "20-48"), "40-49": ("20-97", "16-55"), "50-59": ("21-98", "15-55"), "60-69": ("22-99", "15-57"), ">=70": ("30-105", "17-61")}
-    }
-    vals = ad_age[sk][bracket]
-    datos_mostrar.extend([
-        ("Max RA Volume (mL)", vals[0]),
-        ("Max RA Volume/BSA (mL/m²)", vals[1])
-    ])
+    st.caption(f"Filtro etario activo: {edad} años")
+    if bracket == "<20":
+        datos_mostrar.extend([
+            ("Max RA Volume (mL)", "Datos no disponibles para la edad"),
+            ("Max RA Volume/BSA (mL/m²)", "Datos no disponibles para la edad")
+        ])
+    else:
+        ad_age = {
+            "H": {"20-29": ("18-118", "13-59"), "30-39": ("25-114", "17-57"), "40-49": ("16-131", "11-65"), "50-59": ("18-127", "12-62"), "60-69": ("7-129", "8-66"), ">=70": ("35-140", "17-71")},
+            "M": {"20-29": ("29-81", "19-49"), "30-39": ("30-81", "20-48"), "40-49": ("20-97", "16-55"), "50-59": ("21-98", "15-55"), "60-69": ("22-99", "15-57"), ">=70": ("30-105", "17-61")}
+        }
+        vals = ad_age[sk][bracket]
+        datos_mostrar.extend([
+            ("Max RA Volume (mL)", vals[0]),
+            ("Max RA Volume/BSA (mL/m²)", vals[1])
+        ])
 
 elif seleccion == "AD (Área y Diámetros)":
     datos_mostrar.extend([
@@ -251,48 +243,90 @@ elif seleccion == "AD (Área y Diámetros)":
 elif seleccion == "Aorta (Diámetros)":
     br_ao = get_age_bracket(edad, "aorta_65")
     st.caption(f"Aplicando filtro etario global y por edad ({br_ao} años)")
-    datos_mostrar.extend([
-        ("Ascending Aorta (mm)", "19 - 35" if sk=="H" else "18 - 33"),
-        ("Ascending Aorta (Edad) (mm)", "27 - 37" if sk=="H" else "25 - 34"),
-        ("Ascending Aorta/BSA (mm/m²)", "13 - 20" if sk=="H" else "14 - 21")
-    ])
+    
+    # El valor general siempre se muestra
+    datos_mostrar.append(("Ascending Aorta (mm)", "19 - 35" if sk=="H" else "18 - 33"))
+    
+    # Manejo del límite de edad específico para la aorta (no hay datos fuera de 45-84)
+    if br_ao in ["<45", ">=85"]:
+        datos_mostrar.extend([
+            ("Ascending Aorta (Edad) (mm)", "Datos no disponibles para la edad"),
+            ("Ascending Aorta/BSA (mm/m²)", "Datos no disponibles para la edad")
+        ])
+    else:
+        datos_mostrar.extend([
+            ("Ascending Aorta (Edad) (mm)", "27 - 37" if sk=="H" else "25 - 34"),
+            ("Ascending Aorta/BSA (mm/m²)", "13 - 20" if sk=="H" else "14 - 21")
+        ])
 
 elif seleccion == "Raíz de Aorta por Edad":
-    st.caption(f"Valores calculados (Mean ± 2SD) para grupo etario: {bracket} años")
-    raiz_data = {
-        "H": {"20-29": (30.1, 3.0, 15.9, 2.1), "30-39": (30.7, 3.2, 15.6, 1.8), "40-49": (32.0, 3.2, 16.3, 1.8), "50-59": (31.4, 4.0, 17.7, 2.1), "60-69": (33.3, 3.4, 17.7, 1.8), ">=70": (35.1, 3.7, 18.0, 1.2)},
-        "M": {"20-29": (25.0, 3.5, 15.1, 1.9), "30-39": (25.3, 2.9, 15.7, 1.8), "40-49": (29.2, 3.8, 17.9, 2.1), "50-59": (28.0, 2.8, 17.1, 1.5), "60-69": (28.6, 3.9, 17.8, 1.8), ">=70": (30.2, 2.0, 18.2, 0.9)}
-    }
-    r = raiz_data[sk][bracket]
-    datos_mostrar.extend([
-        ("Aortic Sinus Diameter (mm)", format_range(r[0], r[1])),
-        ("Aortic Sinus Diameter/BSA (mm/m²)", format_range(r[2], r[3]))
-    ])
+    st.caption(f"Filtro etario activo: {edad} años")
+    if bracket == "<20":
+        datos_mostrar.extend([
+            ("Aortic Sinus Diameter (mm)", "Datos no disponibles para la edad"),
+            ("Aortic Sinus Diameter/BSA (mm/m²)", "Datos no disponibles para la edad")
+        ])
+    else:
+        raiz_data = {
+            "H": {"20-29": (30.1, 3.0, 15.9, 2.1), "30-39": (30.7, 3.2, 15.6, 1.8), "40-49": (32.0, 3.2, 16.3, 1.8), "50-59": (31.4, 4.0, 17.7, 2.1), "60-69": (33.3, 3.4, 17.7, 1.8), ">=70": (35.1, 3.7, 18.0, 1.2)},
+            "M": {"20-29": (25.0, 3.5, 15.1, 1.9), "30-39": (25.3, 2.9, 15.7, 1.8), "40-49": (29.2, 3.8, 17.9, 2.1), "50-59": (28.0, 2.8, 17.1, 1.5), "60-69": (28.6, 3.9, 17.8, 1.8), ">=70": (30.2, 2.0, 18.2, 0.9)}
+        }
+        r = raiz_data[sk][bracket]
+        datos_mostrar.extend([
+            ("Aortic Sinus Diameter (mm)", format_range(r[0], r[1])),
+            ("Aortic Sinus Diameter/BSA (mm/m²)", format_range(r[2], r[3]))
+        ])
 
 elif seleccion == "Senos de Valsalva":
-    st.caption(f"Valores de Cusp-Commissure calculados (Mean ± 2SD) para grupo etario: {bracket} años")
-    senos_data = {
-        "H": {"20-29": (30.4, 3.3, 15.6, 1.7), "30-39": (29.7, 3.5, 15.1, 1.6), "40-49": (31.6, 1.6, 15.3, 1.0), "50-59": (32.7, 4.8, 16.6, 1.9), "60-69": (33.5, 2.3, 17.2, 1.7), ">=70": (33.9, 3.0, 17.4, 1.2)},
-        "M": {"20-29": (26.3, 3.9, 15.3, 2.0), "30-39": (26.8, 2.8, 16.4, 1.3), "40-49": (30.0, 2.1, 16.8, 2.3), "50-59": (28.4, 1.8, 17.2, 1.4), "60-69": (29.5, 2.0, 17.1, 1.4), ">=70": (29.6, 1.4, 17.8, 0.9)}
-    }
-    s = senos_data[sk][bracket]
-    datos_mostrar.extend([
-        ("Aortic Sinus Cusp-Comm (mm)", format_range(s[0], s[1])),
-        ("Aortic Sinus Cusp-Comm/BSA (mm/m²)", format_range(s[2], s[3]))
-    ])
+    st.caption(f"Filtro etario activo: {edad} años")
+    if bracket == "<20":
+        datos_mostrar.extend([
+            ("Aortic Sinus Cusp-Comm (mm)", "Datos no disponibles para la edad"),
+            ("Aortic Sinus Cusp-Comm/BSA (mm/m²)", "Datos no disponibles para la edad")
+        ])
+    else:
+        senos_data = {
+            "H": {"20-29": (30.4, 3.3, 15.6, 1.7), "30-39": (29.7, 3.5, 15.1, 1.6), "40-49": (31.6, 1.6, 15.3, 1.0), "50-59": (32.7, 4.8, 16.6, 1.9), "60-69": (33.5, 2.3, 17.2, 1.7), ">=70": (33.9, 3.0, 17.4, 1.2)},
+            "M": {"20-29": (26.3, 3.9, 15.3, 2.0), "30-39": (26.8, 2.8, 16.4, 1.3), "40-49": (30.0, 2.1, 16.8, 2.3), "50-59": (28.4, 1.8, 17.2, 1.4), "60-69": (29.5, 2.0, 17.1, 1.4), ">=70": (29.6, 1.4, 17.8, 0.9)}
+        }
+        s = senos_data[sk][bracket]
+        datos_mostrar.extend([
+            ("Aortic Sinus Cusp-Comm (mm)", format_range(s[0], s[1])),
+            ("Aortic Sinus Cusp-Comm/BSA (mm/m²)", format_range(s[2], s[3]))
+        ])
 
 elif seleccion == "Arteria Pulmonar":
-    br_ap = get_age_bracket(edad, "pulmonar")
-    st.caption(f"Valores calculados (Mean ± 2SD) para grupo etario: {br_ap} años")
-    pulm_data = {
-        "H": {"20-30": (22.5, 3.1, 12.1, 1.6), "30-40": (22.6, 2.4, 12.3, 1.4), "40-50": (23.1, 2.9, 12.2, 0.9), "50-60": (23.4, 2.9, 12.4, 1.4), "60-70": (24.1, 2.2, 13.3, 1.4)},
-        "M": {"20-30": (20.4, 2.2, 13.1, 1.7), "30-40": (20.3, 1.5, 13.2, 1.0), "40-50": (21.7, 1.6, 13.4, 1.6), "50-60": (22.9, 2.6, 13.8, 1.5), "60-70": (23.1, 2.8, 14.2, 1.6)}
-    }
-    p = pulm_data[sk][br_ap]
-    datos_mostrar.extend([
-        ("Diameter (mm)", format_range(p[0], p[1])),
-        ("Diameter/BSA (mm/m²)", format_range(p[2], p[3]))
-    ])
+    # Lógica actualizada para extraer Diámetro Sistólico y Diastólico de MPA (Main Pulmonary Artery)
+    st.caption(f"Filtro etario activo: {edad} años (Calculados Mean ± 2SD)")
+    if bracket == "<20":
+        datos_mostrar.extend([
+            ("MPA Systolic Diameter (mm)", "Datos no disponibles para la edad"),
+            ("MPA Diastolic Diameter (mm)", "Datos no disponibles para la edad")
+        ])
+    else:
+        pulm_data = {
+            "H": {
+                "20-29": (28.3, 1.8, 22.4, 1.8),
+                "30-39": (27.3, 2.7, 21.9, 1.8),
+                "40-49": (28.2, 3.1, 23.5, 2.8),
+                "50-59": (27.0, 2.7, 22.9, 3.0),
+                "60-69": (26.5, 2.2, 23.3, 2.1),
+                ">=70": (27.1, 2.7, 23.6, 2.6)
+            },
+            "M": {
+                "20-29": (26.4, 3.3, 21.6, 2.9),
+                "30-39": (25.5, 2.8, 20.4, 2.0),
+                "40-49": (26.5, 1.6, 21.5, 1.6),
+                "50-59": (24.4, 2.7, 20.7, 2.1),
+                "60-69": (25.0, 2.7, 21.6, 2.0),
+                ">=70": (24.0, 1.9, 21.4, 1.9)
+            }
+        }
+        p = pulm_data[sk][bracket]
+        datos_mostrar.extend([
+            ("MPA Systolic Diameter (mm)", format_range(p[0], p[1])),
+            ("MPA Diastolic Diameter (mm)", format_range(p[2], p[3]))
+        ])
 
 elif seleccion == "Atletas VI":
     st.caption("Comparativa: Atletas Regulares vs Elite")
@@ -336,9 +370,8 @@ if seleccion == "Senos de Valsalva":
     col_img1, col_img2 = st.columns([1, 2])
     with col_img1:
         st.markdown("**Diagrama de Referencia**")
-        img_diagrama = "Senos de Valsalva.jpg" if os.path.exists("Senos de Valsalva.jpg") else "image_3947dc.png"
-        if os.path.exists(img_diagrama):
-            st.image(img_diagrama, use_container_width=True)
+        if os.path.exists("Senos de Valsalva.jpg"):
+            st.image("Senos de Valsalva.jpg", use_container_width=True)
     with col_img2:
         st.markdown(f"**Anexo Visual:** {seleccion}")
         f_name = mapping[seleccion]
@@ -362,8 +395,6 @@ elif seleccion == "Valvulopatía":
     f_name = mapping[seleccion]
     if os.path.exists(f_name):
         st.image(f_name, width=1000)
-    else:
-        st.error(f"Falta agregar la imagen en tu carpeta: {f_name}")
 
 else:
     f_name = mapping.get(seleccion)
